@@ -1,0 +1,39 @@
+# SLURM submission for preprocessing bedmethyl script on Longleaf
+#!/bin/bash
+#SBATCH --job-name=prep_bedmethyl
+#SBATCH --mail-user=katlyssa@ad.unc.edu
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --partition=general
+#SBATCH --time=08:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=150G
+#SBATCH --output=/work/users/k/a/katlyssa/prep_bedmethyl_%j.log
+#SBATCH --error=/work/users/k/a/katlyssa/prep_bedmethyl_%j.err
+
+set -euo pipefail
+
+# ---- User settings ----
+INPUT_DIR="/work/users/k/a/katlyssa/Sample BED files"
+OUTPUT_DIR="/work/users/k/a/katlyssa/Sample BED files/preprocessed"
+SCRIPT_PATH="/work/users/k/a/katlyssa/preprocessing_bedmethyl.py"
+MIN_COVERAGE=5
+
+
+echo "Job started on $(date)"
+echo "Host: $(hostname)"
+echo "Input dir: ${INPUT_DIR}"
+echo "Output dir: ${OUTPUT_DIR}"
+echo "Script: ${SCRIPT_PATH}"
+
+mkdir -p "${OUTPUT_DIR}"
+
+module load python
+source ~/COMP_683/bin/activate
+
+echo "Python being used: $(which python)"
+
+python -c "import pandas as pd; print('pandas version:', pd.__version__)"
+
+python "${SCRIPT_PATH}" --input-dir "${INPUT_DIR}" --output-dir "${OUTPUT_DIR}" --min-coverage "${MIN_COVERAGE}"
+
+echo "Job finished on $(date)"
