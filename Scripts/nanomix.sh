@@ -1,97 +1,161 @@
-{\rtf1\ansi\ansicpg1252\cocoartf2867
-\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 ArialMT;}
-{\colortbl;\red255\green255\blue255;}
-{\*\expandedcolortbl;;}
-\margl1440\margr1440\vieww11520\viewh8400\viewkind0
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+###### Run Nanomix for 7 Nanopore samples after preprocessing ######
+# 1. Data prep ======================
+# Check data in tsv file
 
-\f0\fs24 \cf0 # Run Nanomix to get cell type proportions\
-# https://github.com/Jonbroad15/nanomix/blob/main/README.md\
-\
-# 1. Set up\
-conda deactivate # deactivate any active environment\
-\
-# verify base is clean\
-echo "Current env: $CONDA_DEFAULT_ENV"  # should be empty or base \
-\
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
-\cf0 # Activate nanomix env\
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
-\cf0 conda activate nanomix \
-\
-# Verify correct environment and Python version\
-echo "Active env: $CONDA_DEFAULT_ENV"   # should be nanomix\
-which python                             # should show miniconda3/envs/nanomix/...\
-python --version                         # should be 3.10.x\
-\
-# Set PYTHONPATH\
-export PYTHONPATH="/Users/hazelmilla/nanomix/python:$PYTHONPATH"\
-\
-# Copy .so with expected name\
-cp ~/nanomix/python/nanomix/nanomix.cpython-310-darwin.so \\\
-   ~/nanomix/python/nanomix/_nanomix.cpython-310-darwin.so\
-\
-# Verify Python can find nanomix\
-python -c "import sys; print('\\n'.join(sys.path))"\
-\
-# needed to uninstall and reinstall pkg_resources in the correct location\
-rm /Users/hazelmilla/miniconda3/envs/nanomix/lib/python3.10/site-packages/pkg_resources\
-\
-cp -r /Users/hazelmilla/miniconda3/envs/nanomix/lib/python3.10/site-packages/pip/_vendor/pkg_resources \\\
-      /Users/hazelmilla/miniconda3/envs/nanomix/lib/python3.10/site-packages/pkg_resources\
-/Users/hazelmilla/miniconda3/envs/nanomix/bin/python -c "import pkg_resources; print('found at:', pkg_resources.__file__)"\
-\
-# make sure nanomix is installed\
-python -c "import nanomix; print('success:', nanomix.__file__)"\
-\
-#2. Make adjustments to the atlas - only need immune cell types\
-\pard\pardeftab720\partightenfactor0
-\cf0 \expnd0\expndtw0\kerning0
-awk 'BEGIN\{FS=OFS="\\t"\}\
-NR==1 \{\
-  for (i=1; i<=NF; i++) \{\
-    if ($i=="chr" || $i=="start" || $i=="end" || $i=="B-cell" || $i=="NK-cell" || $i=="T-cell" || $i=="monocyte" || $i=="granulocyte") \{\
-      keep[i]=1\
-    \}\
-  \}\
-\}\
-\{\
-  out=""\
-  for (i=1; i<=NF; i++) \{\
-    if (i in keep) \{\
-      out = out (out=="" ? "" : OFS) $i\
-    \}\
-  \}\
-  print out\
-\}' ~/39Bisulfite.tsv > ~/atlas_immune_cell.tsv\
-\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
-\cf0 \kerning1\expnd0\expndtw0 \
-# 3. Check that deconvolution is working\
-# check one of the tsv files\
-\pard\pardeftab720\partightenfactor0
-\cf0 \expnd0\expndtw0\kerning0
-head -1 ~/xx5_filtered.tsv | tr '\\t' \'91\\n\'92 # colnames\kerning1\expnd0\expndtw0 \
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
-\cf0 \
-# run nanomix on 1 file to see if it\'92s working properly\
-/Users/hazelmilla/miniconda3/envs/nanomix/bin/nanomix deconvolute -a atlas_immune_cell.tsv xx13_nanomix.tsv > test_output_deconv.tsv\
-\
-# 4. Run deconvolution\
-for f in ~/*_filtered.tsv; do\
-    sample=$(basename "$f" _filtered.tsv)\
-    echo "Processing $sample..."\
-\
-    # Step 1: filter and rename columns\
-    nanomix_input="$\{f/_filtered.tsv/_nanomix.tsv\}"\
-    awk -F'\\t' '\
-    NR==1\{for(i=1;i<=NF;i++) col[$i]=i; print "chr\\tstart\\tend\\ttotal_calls\\tmodified_calls"; next\}\
-    \{print $col["chrom"]"\\t"$col["start"]"\\t"$col["end"]"\\t"$col["Nvalid_cov"]"\\t"$col["Nmod"]\}\
-    ' "$f" > "$nanomix_input"\
-    echo "  Filtered: $nanomix_input"\
-\
-    # Step 2: deconvolute\
-    deconv_output="$\{f/_filtered.tsv/_deconv.tsv\}"\
-    /Users/hazelmilla/miniconda3/envs/nanomix/bin/nanomix deconvolute -a atlas_immune_cell.tsv "$nanomix_input" > "$deconv_output"\
-    echo "  Deconvoluted: $deconv_output"\
-done\
+head -1 ~/ont_m.tsv | tr '\t' ‘\n’ # colnames
+head -2 ~/ont_m.tsv | tail -1 | tr '\t' '\n' # first row
+cut -f1 ~/ont_m.tsv | tail -n +2 # no rownames
+
+# We need a tsv file with the following columns:
+# {chr, start, end, total_calls, modified_calls}
+# We have chrom, start, end, …. Nvalid_cov, Nmod
+# This adjustment has been built into the deconvolution loop below
+
+# Make adjustments to atlas so it only captures immune cell type proportions
+awk 'BEGIN{FS=OFS="\t"}
+NR==1 {
+  for (i=1; i<=NF; i++) {
+    if ($i=="chr" || $i=="start" || $i=="end" || $i=="B-cell" || $i=="NK-cell" || $i=="T-cell" || $i=="monocyte" || $i=="granulocyte") {
+      keep[i]=1
+    }
+  }
 }
+{
+  out=""
+  for (i=1; i<=NF; i++) {
+    if (i in keep) {
+      out = out (out=="" ? "" : OFS) $i
+    }
+  }
+  print out
+}' ~/39Bisulfite.tsv > ~/atlas_immune_cell.tsv
+
+# 2. Install nanomix ======================
+# Create nanomix environment
+
+conda create -n nanomix python=3.10 -y
+conda activate ~/miniconda3/envs/nanomix
+
+which python                            # should show miniconda3/envs/nanomix/...
+python3 --version                        # should be 3.10.x
+
+# this needs to happen before maturin
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source $HOME/.cargo/env
+
+# install nanomix from the source using maturin
+pip install maturin
+git clone https://github.com/Jonbroad15/nanomix.git
+cd nanomix
+
+rustup target add x86_64-apple-darwin
+maturin develop --target x86_64-apple-darwin
+
+#cd nanomix
+#pip install -e .
+
+# set PYTHONPATH
+export PYTHONPATH="/Users/hazelmilla/nanomix/python:$PYTHONPATH"
+
+# copy .so with expected name
+cp ~/nanomix/python/nanomix/nanomix.cpython-310-darwin.so \
+   ~/nanomix/python/nanomix/_nanomix.cpython-310-darwin.so
+
+# verify Python can find nanomix
+python -c "import sys; print('\n'.join(sys.path))"
+
+# remove package resource, move to correct environment
+rm /Users/hazelmilla/miniconda3/envs/nanomix/lib/python3.10/site-packages/pkg_resources
+
+cp -r /Users/hazelmilla/miniconda3/envs/nanomix/lib/python3.10/site-packages/pip/_vendor/pkg_resources \
+      /Users/hazelmilla/miniconda3/envs/nanomix/lib/python3.10/site-packages/pkg_resources
+/Users/hazelmilla/miniconda3/envs/nanomix/bin/python -c "import pkg_resources; print('found at:', pkg_resources.__file__)"
+
+# 3. Run nanomix deconvolution ======================
+for f in ~/*_filtered.tsv; do
+    sample=$(basename "$f" _filtered.tsv)
+    echo "Processing $sample..."
+
+    # filter and rename columns
+    nanomix_input="${f/_filtered.tsv/_nanomix.tsv}"
+    awk -F'\t' '
+    NR==1{for(i=1;i<=NF;i++) col[$i]=i; print "chr\tstart\tend\ttotal_calls\tmodified_calls"; next}
+    {print $col["chrom"]"\t"$col["start"]"\t"$col["end"]"\t"$col["Nvalid_cov"]"\t"$col["Nmod"]}
+    ' "$f" > "$nanomix_input"
+    echo "  Filtered: $nanomix_input"
+
+    # deconvolute
+    deconv_output="${f/_filtered.tsv/_deconv.tsv}"
+    /Users/hazelmilla/miniconda3/envs/nanomix/bin/nanomix deconvolute -a atlas_immune_cell.tsv "$nanomix_input" > "$deconv_output"
+    echo "  Deconvoluted: $deconv_output"
+done
+
+######## Run Nanomix on imputed data #########
+#4. format tsv files in python ================
+python
+import pandas as pd
+import os
+
+os.chdir("/Users/hazelmilla/Desktop/Nanopore_files/")
+df = pd.read_csv("ont_m_imputed_wide.csv", sep=",")
+
+names_list = df.columns.tolist()
+sample_names = names_list[1:] # get list of sample names w/o ont_cpg col
+print(sample_names) 
+
+dfs = {}
+
+# run loop to generate 1 file per sample with correct formatting
+# must include columns: {chr, start, end, total_calls, modified_calls}
+for sample in sample_names: 
+    # Load one filtered file at a time
+    file_name = str(sample) + '_filtered.tsv'
+    df_with_chr = pd.read_csv(file_name, sep="\t")
+    
+    df_subset = df[['ont_cpg', sample]].dropna().copy()
+    DEPTH = 10
+    df_subset["total_calls"] = DEPTH
+    df_subset["modified_calls"] = (df_subset[sample] * DEPTH).round().astype(int)
+    
+    df_merged = pd.merge(df_with_chr, df_subset, on='ont_cpg')
+    
+    df_out = df_merged[['chrom', 'start', 'end', 'total_calls', 'modified_calls']]
+    df_out = df_out.rename(columns={'chrom': 'chr'}) # rename 'chr' column
+    
+    df_out.to_csv(str(sample) + '_imputed_nanomix.tsv', sep="\t", index=False)
+    
+    # Explicitly free memory before next iteration
+    del df_with_chr, df_subset, df_merged, df_out
+
+
+exit()
+
+# 5. Get everything set up for deconvolution again ================
+# See step 2: install nanomix
+# activate environment
+conda activate ~/miniconda3/envs/nanomix
+
+# verify that Python can find nanomix environment
+python -c "import sys; print('\n'.join(sys.path))"
+
+# 6. Run deconvolution ================
+for f in "$HOME"/Desktop/Nanopore_files/*_imputed_nanomix.tsv; do
+    sample=$(basename "$f" _imputed_nanomix.tsv)
+    echo "Processing $sample..."
+
+    deconv_output="${f/_imputed_nanomix.tsv/_imputed_deconv.tsv}"
+    /Users/hazelmilla/miniconda3/envs/nanomix/bin/nanomix deconvolute \
+        -a atlas_immune_cell.tsv "$f" > "$deconv_output"
+    echo "  Deconvoluted: $deconv_output"
+done
+
+# Troubleshooting
+cd ~/Desktop/Nanopore_files
+
+bedtools intersect \
+    -a xx5_imputed_nanomix.tsv \
+    -b atlas_immune_cell.tsv \
+    -wa -u | wc -l
+
+# 66506 / 19282076 sites present in atlas
+
