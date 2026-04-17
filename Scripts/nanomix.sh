@@ -1,6 +1,7 @@
 ###### Run Nanomix for 7 Nanopore samples after preprocessing ######
 # 1. Data prep ======================
 # Check data in tsv file
+# https://github.com/Jonbroad15/nanomix/blob/main/README.md 
 
 head -1 ~/ont_m.tsv | tr '\t' ‘\n’ # colnames
 head -2 ~/ont_m.tsv | tail -1 | tr '\t' '\n' # first row
