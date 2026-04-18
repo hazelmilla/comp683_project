@@ -160,3 +160,47 @@ bedtools intersect \
 
 # 66506 / 19282076 sites present in atlas
 
+########## Running again on original data ##########
+
+cd ~/Desktop/Nanopore_files
+# convert bed files to tsv
+# column count
+head -1 xx5.bed | awk '{print NF}' # 18
+
+# see each column on its own line with index
+head -1 xx5.bed | tr '\t' '\n' | nl
+
+for f in *.bed; do
+    sample=$(basename "$f" .bed)
+    echo "Processing $sample..."
+    
+    awk 'BEGIN{OFS="\t"; print "chr\tstart\tend\ttotal_calls\tmodified_calls"}
+         {
+             total = $5
+             modified = int($11/100 * total + 0.5)
+             print $1, $2, $3, total, modified
+         }' "$f" > "${sample}_nanomix.tsv"
+    
+    echo "  Written: ${sample}_nanomix.tsv"
+done
+
+# activate environment and make sure Python can find it
+conda activate ~/miniconda3/envs/nanomix
+python -c "import sys; print('\n'.join(sys.path))"
+
+cd ~/Desktop/Nanopore_files
+
+# run nanomix
+for f in "$HOME"/Desktop/Nanopore_files/*_aggregated_nanomix.tsv; do
+    sample=$(basename "$f" _aggregated_nanomix.tsv)
+    echo "Processing $sample..."
+
+    deconv_output="${f/_aggregated_nanomix.tsv/_deconv.tsv}"
+    /Users/hazelmilla/miniconda3/envs/nanomix/bin/nanomix deconvolute \
+        -a atlas_immune_cell.tsv "$f" > "$deconv_output"
+    echo "  Deconvoluted: $deconv_output"
+done
+
+cd ~/Desktop/Nanopore_files
+nanomix simulate -a atlas_immune_cell.tsv xx5_deconv.tsv > nano_sim.tsv
+nanomix evaluate -a atlas_immune_cell.tsv nano_sim.tsv > eval_output.tsv
