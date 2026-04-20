@@ -1,0 +1,31 @@
+# Hopper is used for geometric sketching to subset drift-associated CpGs from PCA 
+#!/usr/bin/env python3
+import pandas as pd
+from treehopper import hopper
+
+INPUT = "/work/users/k/a/katlyssa/Sample BED files/drift_pca_scores.tsv"
+OUT = "/work/users/k/a/katlyssa/Sample BED files/drift_hopper_nodes.tsv"
+
+K = 500
+
+  print("Loading PCA scores...")
+
+df = pd.read_csv(INPUT, sep="\t")
+
+print("Shape:", df.shape)
+
+# Use first 3 PCs because they explain ~98% variance
+X = df[["PC1", "PC2", "PC3"]].values
+
+print("Running Hopper sketch...")
+  
+h = hopper(X)
+
+sketch = h.hop(K)
+
+print(f"Selected {len(sketch)} CpGs")
+
+subset = df.iloc[sketch].copy()
+subset.to_csv(OUT, sep="\t", index=False)
+
+print(f"Saved Hopper sketch to: {OUT}")
