@@ -1,0 +1,64 @@
+# Script to run PCA on drift feature matrix 
+#!/usr/bin/env python3
+from pathlib import Path
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+BASE = Path("/work/users/k/a/katlyssa/Sample BED files")
+INPUT = BASE / "drift_feature_matrix.tsv"
+OUT_SCORES = BASE / "drift_pca_scores.tsv"
+OUT_VARIANCE = BASE / "drift_pca_variance.tsv"
+OUT_LOADINGS = BASE / "drift_pca_loadings.tsv"
+
+print(f"Reading matrix: {INPUT}")
+
+df = pd.read_csv(INPUT, sep="\t", index_col=0)
+
+print("Matrix shape:", df.shape)
+print("Columns:", list(df.columns))
+
+# Drop any rows with NA
+df = df.dropna(axis=0)
+print("Shape after dropping NA rows:", df.shape)
+
+# Standardize columns (samples)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(df)
+
+# PCA
+n_components = min(5, df.shape[1])
+pca = PCA(n_components=n_components)
+X_pca = pca.fit_transform(X_scaled)
+
+# Save PCA scores (rows = CpGs)
+scores = pd.DataFrame(
+    X_pca,
+    index=df.index,
+    columns=[f"PC{i+1}" for i in range(n_components)]
+)
+scores.to_csv(OUT_SCORES, sep="\t")
+
+# Save explained variance
+variance = pd.DataFrame({
+    "PC": [f"PC{i+1}" for i in range(n_components)],
+    "explained_variance_ratio": pca.explained_variance_ratio_,
+    "cumulative_variance": pca.explained_variance_ratio_.cumsum()
+})
+
+variance.to_csv(OUT_VARIANCE, sep="\t", index=False)
+
+# Save loadings (how each sample contributes to each PC)
+loadings = pd.DataFrame(
+    pca.components_.T,
+    index=df.columns,
+    columns=[f"PC{i+1}" for i in range(n_components)]
+)
+loadings.to_csv(OUT_LOADINGS, sep="\t")
+
+print("\nExplained variance ratio:")
+print(variance)
+print(f"\nSaved PCA scores to: {OUT_SCORES}")
+print(f"Saved variance table to: {OUT_VARIANCE}")
+
+print(f"Saved loadings to: {OUT_LOADINGS}")
