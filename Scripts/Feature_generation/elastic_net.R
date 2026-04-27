@@ -19,6 +19,7 @@ ont_m_matrix <- ont_m %>% subset(select = c(colnames(ont_m)[1:8])) # select only
 
 pheno$sex <- ifelse(pheno$sex == "F", 0, 1) # code as numeric
 
+#2. Run elastic net ==========================
 # elastic net function
 run_elastic_net <- function(input_beta, covariates, alpha = 0.5, n_columns = 7) {
   
