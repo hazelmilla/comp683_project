@@ -1,4 +1,4 @@
-# 2. Compute & assess epigenetic drift ===================================
+# Compute & assess epigenetic drift ===================================
 # code adapted from Fan et al. 2025
 
 library("lmtest") # code for drift calculation
@@ -55,7 +55,7 @@ dim(cgdat) # Run on cgdat to test subset
 pheno$sex <- ifelse(pheno$sex == "F", 0, 1) # code as numeric
 
 ###### White method (robust) ########
-# code from Fan et al. 2025
+# code adapted from Fan et al. 2025
 getWhitePdriftCpG <- function(method, alpha, nSamples, nIterations, age, cpgdata, covdata) {
   
   whiteP <- betaX <- seX <- tX <- pX <- 
